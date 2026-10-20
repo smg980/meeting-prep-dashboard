@@ -175,7 +175,7 @@
   function md(src) {
     const ph = []; const hold = html => `\u0000${ph.push(html) - 1}\u0000`;
     let s = String(src ?? '');
-    s = s.replace(/\\([\\`*_[\]()#+\-.!|~>])/g, (_, c) => hold(esc(c)));
+    s = s.replace(/\\([\\`*_[\]()#+\-.!|~>$])/g, (_, c) => hold(esc(c)));
     s = s.replace(/`([^`]+)`/g, (_, c) => hold(`<code>${esc(c)}</code>`));
     s = s.replace(/\[([^\]]*)\]\(([^)\s]+)\)/g, (_, t, u) => { const url = httpUrl(u); const inner = fmtInline(esc(t || u));
       return hold(url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>` : inner); });
