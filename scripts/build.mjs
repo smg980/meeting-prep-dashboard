@@ -83,7 +83,7 @@ export function parsePrepPage({ id, title, url, last_edited, content, icon }) {
   const account = acctLine ? clean(acctLine) : parts.length > 1 ? parts[0] : '';
   const attLine = full.match(/\*\*(?:Attendees|Participants?):\*\*\s*(.+)/gi) || [];
   const seen = new Map();
-  for (const n of attLine.flatMap(l => clean(l.replace(/^.*?:\*\*/, '')).split(/,|;/).map(s => s.trim()).filter(Boolean))) {
+  for (const n of attLine.flatMap(l => clean(l.replace(/^.*?:\*\*/, '')).split(/[,;](?![^(]*\))/).map(s => s.trim()).filter(Boolean))) {
     const k = n.replace(/\s*\(.*\)\s*$/, '').toLowerCase(); if (!seen.has(k) || n.length > seen.get(k).length) seen.set(k, n);
   }
   const attendees = [...seen.values()];
