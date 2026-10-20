@@ -11,7 +11,7 @@
 // Plaintext never touches the repo. Use --example to build a labeled EXAMPLE dataset into example/ (gitignored).
 
 import { webcrypto as crypto, createHash } from 'node:crypto';
-import { parseBlocks, sectionize } from './notion-blocks.mjs';
+import { parseBlocks, sectionize, extractNextActions } from './notion-blocks.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -107,6 +107,7 @@ export function parsePrepPage({ id, title, url, last_edited, content, icon }) {
     agenda: items(find(secs, /agenda/i)),
     prep: checks(find(secs, /prep checklist/i)),
     followup: checks(find(secs, /follow-?up checklist/i)),
+    nextActions: extractNextActions(sections),
     notionUrl: url,
     notionEditedAt: last_edited || null,
     hasPrep: true,
@@ -223,7 +224,7 @@ function merge(prep, events) {
   return prep.concat(extra.map(e => ({
     id: routeId(e.uid || e.summary), rid: routeId(e.uid || e.summary), page: null, title: e.summary, account: '', start: e.DTSTART.toISOString(),
     end: e.DTEND?.toISOString() || null, attendees: e.attendees.map(a => a.name || a.email), location: e.location || '', purpose: '', objective: '',
-    questions: [], agenda: [], prep: { done: 0, total: 0 }, followup: { done: 0, total: 0 }, notionUrl: null, hasPrep: false, source: 'calendar',
+    questions: [], agenda: [], prep: { done: 0, total: 0 }, followup: { done: 0, total: 0 }, nextActions: null, notionUrl: null, hasPrep: false, source: 'calendar',
   })));
 }
 
@@ -278,6 +279,15 @@ EXAMPLE objective: confirm status, stakeholders, milestones and next actions.
 - **Current status:**
 - **Agreed next actions:**
 	- Action: ___ | Owner: ___ | Due: ___
+## Next Actions — EXAMPLE account plan
+**Context:** EXAMPLE context paragraph. Treat items below as **sample content** only.
+### Prioritized next actions
+- [x] **1 — EXAMPLE: Confirm platform mix with the sponsor.** Validate tools in use and owners. Owner: Example Person A; timing: this week.
+- [ ] **2 — EXAMPLE: Qualify the governance need.** Ask how permissions and audit trails are handled today. Owner: Steve + specialist; timing: next architecture call.
+- [ ] **3 — EXAMPLE: Map stakeholders.** Confirm sponsor, technical owner and security owner.
+### Discovery questions
+1. EXAMPLE: Which platforms are in production versus pilot?
+2. EXAMPLE: Who owns the AI operating model?
 ## Follow-up checklist
 - [ ] EXAMPLE: Send recap email
 - [ ] EXAMPLE: Update opportunity record
@@ -294,7 +304,7 @@ function exampleData() {
     mk(1, 'Acme Corp', 'Opportunity review', t(0, 15, 30), { followup: { done: 1, total: 3 } }),
     mk(2, 'Globex', 'Discovery call', t(1, 10, 0, 45)),
     mk(3, 'Initech', 'Exec alignment', t(1, 14, 0, 60), { prep: { done: 0, total: 5 } }),
-    { ...mk(4, 'Umbrella', 'External kickoff', t(2, 11, 0)), hasPrep: false, notionUrl: null, page: null, objective: '', purpose: 'EXAMPLE DATA for design preview only.', questions: [], agenda: [], prep: { done: 0, total: 0 }, followup: { done: 0, total: 0 }, source: 'calendar' },
+    { ...mk(4, 'Umbrella', 'External kickoff', t(2, 11, 0)), hasPrep: false, notionUrl: null, page: null, objective: '', purpose: 'EXAMPLE DATA for design preview only.', questions: [], agenda: [], prep: { done: 0, total: 0 }, followup: { done: 0, total: 0 }, nextActions: null, source: 'calendar' },
     mk(5, 'Hooli', 'QBR (past)', t(-1, 13, 0), { prep: { done: 5, total: 5 }, followup: { done: 2, total: 3 } }),
   ];
 }

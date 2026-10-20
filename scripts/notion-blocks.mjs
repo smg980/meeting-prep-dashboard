@@ -120,3 +120,25 @@ export function sectionize(blocks) {
   if (cur.heading || cur.blocks.length) sections.push(cur);
   return sections;
 }
+
+// ---------- Next Actions ----------
+// Any heading (any level) that starts with "Next actions" / "Next steps" / "Action items" marks a Next Actions section.
+export const NEXT_ACTIONS_RE = /^(?:\W*\s*)?(?:next\s+(?:actions?|steps)|action\s+items)\b/i;
+const flatTodos = (blocks, out = []) => { for (const b of blocks || []) { if (b.type === 'todo') out.push({ text: b.text, checked: b.checked }); flatTodos(b.children, out); } return out; };
+// Returns { heading, done, total, items:[{text,checked}] } or null. Looks at top-level sections first, then nested headings.
+export function extractNextActions(sections) {
+  const found = [];
+  for (const sec of sections || []) {
+    if (NEXT_ACTIONS_RE.test(sec.heading || '')) { found.push({ heading: sec.heading, blocks: sec.blocks }); continue; }
+    const bl = sec.blocks || [];
+    for (let i = 0; i < bl.length; i++) {
+      const b = bl[i]; if (b.type !== 'heading' || !NEXT_ACTIONS_RE.test(b.text)) continue;
+      const body = [...(b.children || [])];
+      for (let j = i + 1; j < bl.length && !(bl[j].type === 'heading' && bl[j].level <= b.level); j++) body.push(bl[j]);
+      found.push({ heading: b.text, blocks: body });
+    }
+  }
+  if (!found.length) return null;
+  const items = found.flatMap(f => flatTodos(f.blocks));
+  return { heading: found[0].heading, done: items.filter(x => x.checked).length, total: items.length, items };
+}

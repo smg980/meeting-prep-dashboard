@@ -19,6 +19,11 @@ The detail view mirrors the whole Notion page read-only: meeting details, object
 prep and follow-up checklists with progress, live notes (empty state when blank), and any other blocks (paragraphs, lists,
 toggles, callouts, tables, quotes, code, links). It has a print stylesheet too.
 
+**Next Actions.** Any heading (any level) starting with "Next actions", "Next steps" or "Action items" is picked up automatically.
+It renders as a highlighted section with an "Actions complete" progress bar, checkbox state mirrored from Notion, and
+"Owner: …; timing: …" pulled into tags. Its progress also shows in **At a glance** (with a jump link) and on the meeting card.
+Pages without that heading are unchanged.
+
 ## Building the data
 ```bash
 export DASHBOARD_PASSPHRASE='…'      # required, never commit it

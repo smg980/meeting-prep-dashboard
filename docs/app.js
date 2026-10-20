@@ -87,7 +87,7 @@
         <div class="title-row">${m.account ? `<span class="acct">${esc(m.account)}</span>` : ''}<h3>${esc(m.title)}</h3></div>
         ${m.objective || m.purpose ? `<p class="objective">${esc(m.objective || m.purpose)}</p>` : ''}
         ${people || extra ? `<div class="people">${people}${extra}</div>` : ''}
-        <div class="bars">${bar('Prep checklist', m.prep)}${ended ? bar('Follow-up', m.followup) : ''}</div>
+        <div class="bars">${bar('Prep checklist', m.prep)}${m.nextActions ? bar('Next actions', m.nextActions) : ''}${ended ? bar('Follow-up', m.followup) : ''}</div>
         ${hasMore ? `<details class="more"><summary>Questions &amp; agenda</summary><div class="more-grid">
           ${(m.questions || []).length ? `<div><h4>Priority questions</h4><ol>${m.questions.map(q => `<li>${esc(q)}</li>`).join('')}</ol></div>` : ''}
           ${(m.agenda || []).length ? `<div><h4>Agenda</h4><ul>${m.agenda.map(q => `<li>${esc(q)}</li>`).join('')}</ul></div>` : ''}
@@ -194,13 +194,20 @@
   const deepBlank = b => isBlank(b.text) && (b.children || []).every(deepBlank);
 
   // ---------- detail view ----------
-  const KINDS = [[/prep checklist|pre-?meeting checklist|prep list/i, 'prep'], [/follow-?up/i, 'followup'], [/live notes|during[- ]meeting|meeting notes|^notes$/i, 'notes'],
+  const NEXT_ACTIONS_RE = /^(?:\W*\s*)?(?:next\s+(?:actions?|steps)|action\s+items)\b/i;
+  const KINDS = [[NEXT_ACTIONS_RE, 'actions'], [/prep checklist|pre-?meeting checklist|prep list/i, 'prep'], [/follow-?up/i, 'followup'], [/live notes|during[- ]meeting|meeting notes|^notes$/i, 'notes'],
     [/question/i, 'questions'], [/agenda/i, 'agenda'], [/objective|goal/i, 'objective'], [/details|logistics/i, 'details'], [/look for|watch for|signals/i, 'signals']];
   const kindOf = t => (KINDS.find(([re]) => re.test(t || '')) || [])[1] || '';
-  const KIND_ICON = { prep: ICON.check, followup: ICON.flag, notes: ICON.notes, questions: ICON.help, agenda: ICON.agenda, objective: ICON.target, details: ICON.info, signals: ICON.list };
+  const KIND_ICON = { actions: ICON.arrow, prep: ICON.check, followup: ICON.flag, notes: ICON.notes, questions: ICON.help, agenda: ICON.agenda, objective: ICON.target, details: ICON.info, signals: ICON.list };
   const countTodos = blocks => blocks.reduce((a, b) => { const c = countTodos(b.children || []); return { done: a.done + c.done + (b.type === 'todo' && b.checked ? 1 : 0), total: a.total + c.total + (b.type === 'todo' ? 1 : 0) }; }, { done: 0, total: 0 });
   const progressBar = (label, c) => c.total ? `<div class="bar ${c.done === c.total ? 'done' : ''}"><div class="lbl"><span>${esc(label)}</span><span>${c.done}/${c.total} · ${pct(c)}%</span></div><div class="track"><div class="fill" data-w="${pct(c)}"></div></div></div>` : '';
 
+  // Next-action items: pull trailing "Owner: …; timing/due: …" into tags (text is otherwise unchanged).
+  function actionText(text) {
+    const m = String(text || '').match(/^(.*?[.;]?)\s*\bOwner:\s*([^;]+?)\s*(?:[;,]\s*(?:timing|due|when|by):\s*(.+?))?\.?\s*$/i);
+    if (!m || !m[1].trim()) return md(text);
+    return `${md(m[1].trim().replace(/;$/, ''))}<span class="act-meta"><span class="act-tag">${ICON.users}<span>Owner</span>${md(m[2])}</span>${m[3] ? `<span class="act-tag">${ICON.clock}<span>Timing</span>${md(m[3])}</span>` : ''}</span>`;
+  }
   function renderBlocks(blocks, kind) {
     let html = '', i = 0, k = kind;
     while (i < blocks.length) {
@@ -209,7 +216,7 @@
       if (b.type === 'heading') { k = kindOf(b.text) || kind; html += `<h3 class="d-sub">${md(b.text)}</h3>${renderBlocks(b.children || [], k)}`; i++; continue; }
       if (b.type === 'todo') {
         const g = group('todo'); const c = countTodos(g);
-        html += `${k === 'prep' || k === 'followup' ? '' : `<div class="mini-progress">${progressBar('Checklist', c)}</div>`}<ul class="checklist">${g.map(t => `<li class="${t.checked ? 'done' : ''}"><span class="cb" role="img" aria-label="${t.checked ? 'Done' : 'Not done'}">${t.checked ? ICON.check : ''}</span><span class="ct">${md(t.text)}${t.children?.length ? renderBlocks(t.children, k) : ''}</span></li>`).join('')}</ul>`;
+        html += `${k === 'prep' || k === 'followup' || k === 'actions' ? '' : `<div class="mini-progress">${progressBar('Checklist', c)}</div>`}<ul class="checklist ${k === 'actions' ? 'action-list' : ''}">${g.map(t => `<li class="${t.checked ? 'done' : ''}"><span class="cb" role="img" aria-label="${t.checked ? 'Done' : 'Not done'}">${t.checked ? ICON.check : ''}</span><span class="ct">${k === 'actions' ? actionText(t.text) : md(t.text)}${t.children?.length ? renderBlocks(t.children, k) : ''}</span></li>`).join('')}</ul>`;
         continue;
       }
       if (b.type === 'bullet') {
@@ -261,11 +268,11 @@
 
   function sectionHtml(sec, idx) {
     const k = kindOf(sec.heading);
-    const c = (k === 'prep' || k === 'followup') ? countTodos(sec.blocks) : null;
+    const c = (k === 'prep' || k === 'followup' || k === 'actions') ? countTodos(sec.blocks) : null;
     const allBlank = k === 'notes' && sec.blocks.every(b => b.type === 'bullet' ? deepBlank(b) : (b.type === 'paragraph' ? isBlank(b.text) : false));
-    return `<section class="d-sec kind-${k || 'generic'}" id="sec-${idx}">
+    return `<section class="d-sec kind-${k || 'generic'}" id="sec-${idx}"${k === 'actions' ? ' aria-label="Next actions"' : ''}>
       ${sec.heading ? `<header class="d-sec-head"><span class="d-ico">${KIND_ICON[k] || ICON.doc}</span><h2>${md(sec.heading)}</h2>${c && c.total ? `<span class="d-count">${c.done}/${c.total}</span>` : ''}</header>` : ''}
-      ${c ? progressBar(k === 'prep' ? 'Prep progress' : 'Follow-up progress', c) : ''}
+      ${c ? progressBar(k === 'prep' ? 'Prep progress' : k === 'actions' ? 'Actions complete' : 'Follow-up progress', c) : ''}
       ${allBlank ? `<div class="empty-mini notes-empty">${ICON.notes}<span>No live notes captured yet. The note template from Notion is below.</span></div>` : ''}
       <div class="d-body ${allBlank ? 'dim' : ''}">${renderBlocks(sec.blocks, k) || '<div class="empty-mini">This section is empty in Notion</div>'}</div>
     </section>`;
@@ -286,6 +293,7 @@
     const secs = (m.page?.sections || []).map((s, i) => ({ s, i, k: kindOf(s.heading) }));
     const sideSecs = secs.filter(x => x.k === 'prep' || x.k === 'followup');
     const mainSecs = secs.filter(x => !(x.k === 'prep' || x.k === 'followup'));
+    const actSec = secs.find(x => x.k === 'actions');
     const edited = m.notionEditedAt ? new Date(m.notionEditedAt) : null;
     view.innerHTML = `
       <nav class="crumbs no-print"><a href="#/">${ICON.back}All meetings</a></nav>
@@ -310,7 +318,8 @@
         <div class="d-main">${mainSecs.map(x => sectionHtml(x.s, x.i)).join('')}</div>
         <aside class="d-side">
           <section class="d-sec glance"><header class="d-sec-head"><span class="d-ico">${ICON.info}</span><h2>At a glance</h2></header>
-            ${progressBar('Prep checklist', m.prep)}${progressBar('Follow-up checklist', m.followup)}
+            ${progressBar('Prep checklist', m.prep)}${progressBar('Next actions', m.nextActions || {})}${progressBar('Follow-up checklist', m.followup)}
+            ${actSec ? `<a class="btn sm jump-actions no-print" href="#sec-${actSec.i}" data-jump="sec-${actSec.i}">${ICON.arrow}Jump to Next Actions</a>` : ''}
             <dl class="kv-grid compact">
               <dt>When</dt><dd>${esc(dayLabel(m.s))}, ${esc(timeStr(m.s))} ${esc(tzAbbr(m.s))}</dd>
               <dt>Attendees</dt><dd>${(m.attendees || []).length}</dd>
@@ -337,7 +346,8 @@
     if (prev !== VIEW) window.scrollTo(0, 0);
   }
   window.addEventListener('hashchange', route);
-  document.addEventListener('click', e => { const p = e.target.closest('[data-action="print"]'); if (p) window.print(); });
+  document.addEventListener('click', e => { const p = e.target.closest('[data-action="print"]'); if (p) window.print();
+    const j = e.target.closest('[data-jump]'); if (j) { e.preventDefault(); document.getElementById(j.dataset.jump)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
   window.addEventListener('beforeprint', () => document.querySelectorAll('#view-detail details').forEach(d => { d.open = true; }));
 
   // ---------- lock / unlock ----------
