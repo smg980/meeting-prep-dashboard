@@ -231,6 +231,13 @@ details[open] summary{margin-bottom:14px}
 /* Next Actions */
 .d-sec.kind-actions{border-color:color-mix(in srgb,var(--interactive) 38%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--interactive) 7%,var(--card)),var(--card) 140px)}
 .d-sec.kind-actions .d-ico{color:var(--interactive)}
+.d-sec.kind-takeaway{border-color:color-mix(in srgb,var(--brand-gold) 38%,transparent);background:linear-gradient(180deg,color-mix(in srgb,var(--brand-gold) 7%,var(--card)),var(--card) 140px)}
+.d-sec.kind-takeaway .d-ico{background:var(--gold-soft);color:var(--brand-gold)}
+.glance-takeaway{border:1px solid color-mix(in srgb,var(--brand-gold) 30%,transparent);background:var(--gold-soft);border-radius:12px;padding:12px 14px;margin:0 0 14px}
+.glance-takeaway .gt-label{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--brand-gold)}
+.glance-takeaway .gt-label svg{width:14px;height:14px}
+.glance-takeaway p{margin:6px 0 10px;font-size:14px;color:var(--text)}
+.glance-takeaway .jump-actions{margin:0}
 .action-list{gap:8px;margin:4px 0 10px}
 .action-list li{border:1px solid var(--line);background:var(--card-2);padding:10px 12px}
 .action-list li:hover{border-color:var(--line-strong);background:var(--elevated)}
@@ -262,6 +269,7 @@ blockquote{margin:10px 0;padding:6px 14px;border-left:3px solid var(--brand-gold
 .link-block{display:flex;gap:10px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--text);margin:8px 0;background:var(--card-2)}
 .link-block span{flex:1}.link-block small{color:var(--muted);text-transform:uppercase;font-size:11px;letter-spacing:.08em}
 .link-block:hover{border-color:var(--interactive)}
+.link-block.file-only:hover{border-color:var(--line)}
 @media (max-width:960px){.d-grid{grid-template-columns:1fr}.d-side{position:static;order:-1}}
 @media (max-width:860px){.d-hero h1{font-size:24px}.d-hero-side{align-items:flex-start;flex-direction:row;flex-wrap:wrap}.kv,.kv-grid{grid-template-columns:1fr;gap:2px}.kv-grid dd{margin-bottom:8px}.note-field{grid-template-columns:1fr;gap:4px}.agenda-tl li{grid-template-columns:1fr;gap:2px}.d-sec{padding:16px}}
 

@@ -88,7 +88,10 @@ function parseLines(lines, unrendered) {
     // child pages / databases / media → link blocks
     let m;
     if ((m = t.match(/^<(page|database|image|file|video|audio|pdf|embed|bookmark)\b[^>]*(?:url|src|source)="([^"]+)"[^>]*>(.*?)(?:<\/\1>)?$/))) {
-      out.push({ type: 'link', kind: m[1], url: m[2], text: inline(m[3].replace(/<[^>]+>/g, '')) || m[1] }); i++; continue;
+      // Notion-internal file sources (file-upload:// / notion-file-block://) aren't public URLs: keep only the file name.
+      const internal = !/^https?:/i.test(m[2]);
+      const fname = internal ? decodeURIComponent((m[2].match(/[?&]name=([^&]+)/) || [])[1] || '') : '';
+      out.push({ type: 'link', kind: m[1], url: internal ? '' : m[2], text: inline(m[3].replace(/<[^>]+>/g, '')) || fname || m[1] }); i++; continue;
     }
     if ((m = t.match(/^(#{1,6})\s+(.*)$/))) {
       const block = { type: 'heading', level: m[1].length, text: inline(m[2]), children: [] };

@@ -24,6 +24,9 @@ It renders as a highlighted section with an "Actions complete" progress bar, che
 "Owner: …; timing: …" pulled into tags. Its progress also shows in **At a glance** (with a jump link) and on the meeting card.
 Pages without that heading are unchanged.
 
+**Meeting Takeaway.** A top-level heading containing "Takeaway" renders as a gold-accented section, and its first paragraph is surfaced in **At a glance** with a jump link.
+Files attached in Notion (PDFs etc.) show by file name only; Notion-internal file URLs are not included in the data.
+
 ## Building the data
 ```bash
 export DASHBOARD_PASSPHRASE='…'      # required, never commit it

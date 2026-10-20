@@ -22,6 +22,7 @@
     notes: '<svg viewBox="0 0 24 24"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
     info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
     doc: '<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>',
+    spark: '<svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/><path d="M19 16v4M17 18h4"/></svg>',
     flag: '<svg viewBox="0 0 24 24"><path d="M5 21V4M5 4h11l-2 4 2 4H5"/></svg>',
   };
 
@@ -195,10 +196,10 @@
 
   // ---------- detail view ----------
   const NEXT_ACTIONS_RE = /^(?:\W*\s*)?(?:next\s+(?:actions?|steps)|action\s+items)\b/i;
-  const KINDS = [[NEXT_ACTIONS_RE, 'actions'], [/prep checklist|pre-?meeting checklist|prep list/i, 'prep'], [/follow-?up/i, 'followup'], [/live notes|during[- ]meeting|meeting notes|^notes$/i, 'notes'],
+  const KINDS = [[NEXT_ACTIONS_RE, 'actions'], [/takeaway/i, 'takeaway'], [/prep checklist|pre-?meeting checklist|prep list/i, 'prep'], [/follow-?up/i, 'followup'], [/live notes|during[- ]meeting|meeting notes|^notes$/i, 'notes'],
     [/question/i, 'questions'], [/agenda/i, 'agenda'], [/objective|goal/i, 'objective'], [/details|logistics/i, 'details'], [/look for|watch for|signals/i, 'signals']];
   const kindOf = t => (KINDS.find(([re]) => re.test(t || '')) || [])[1] || '';
-  const KIND_ICON = { actions: ICON.arrow, prep: ICON.check, followup: ICON.flag, notes: ICON.notes, questions: ICON.help, agenda: ICON.agenda, objective: ICON.target, details: ICON.info, signals: ICON.list };
+  const KIND_ICON = { actions: ICON.arrow, takeaway: ICON.spark, prep: ICON.check, followup: ICON.flag, notes: ICON.notes, questions: ICON.help, agenda: ICON.agenda, objective: ICON.target, details: ICON.info, signals: ICON.list };
   const countTodos = blocks => blocks.reduce((a, b) => { const c = countTodos(b.children || []); return { done: a.done + c.done + (b.type === 'todo' && b.checked ? 1 : 0), total: a.total + c.total + (b.type === 'todo' ? 1 : 0) }; }, { done: 0, total: 0 });
   const progressBar = (label, c) => c.total ? `<div class="bar ${c.done === c.total ? 'done' : ''}"><div class="lbl"><span>${esc(label)}</span><span>${c.done}/${c.total} · ${pct(c)}%</span></div><div class="track"><div class="fill" data-w="${pct(c)}"></div></div></div>` : '';
 
@@ -248,7 +249,7 @@
       if (b.type === 'paragraph') {
         const g = []; while (i < blocks.length && blocks[i].type === 'paragraph' && LABEL_RE.test(blocks[i].text)) g.push(blocks[i++]);
         if (g.length) { html += `<dl class="kv-grid">${g.map(x => { const m = x.text.match(LABEL_RE); return `<dt>${md(m[1])}</dt><dd>${md(m[2]) || '<span class="ph">—</span>'}</dd>`; }).join('')}</dl>`; continue; }
-        html += `<p class="${k === 'objective' ? 'lead' : ''}">${md(b.text)}</p>`; i++; continue;
+        html += `<p class="${k === 'objective' || (k === 'takeaway' && i === 0) ? 'lead' : ''}">${md(b.text)}</p>`; i++; continue;
       }
       i++;
       if (b.type === 'toggle') html += `<details class="d-toggle"><summary>${md(b.text)}</summary><div class="d-toggle-body">${renderBlocks(b.children || [], k)}</div></details>`;
@@ -260,7 +261,7 @@
       else if (b.type === 'quote') html += `<blockquote>${md(b.text)}${renderBlocks(b.children || [], k)}</blockquote>`;
       else if (b.type === 'divider') html += '<hr>';
       else if (b.type === 'code') html += `<pre><code>${esc(b.text)}</code></pre>`;
-      else if (b.type === 'link') { const u = httpUrl(b.url); html += u ? `<a class="link-block" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ICON.doc}<span>${md(b.text)}</span><small>${esc(b.kind)}</small>${ICON.ext}</a>` : `<p>${md(b.text)}</p>`; }
+      else if (b.type === 'link') { const u = httpUrl(b.url); html += u ? `<a class="link-block" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ICON.doc}<span>${md(b.text)}</span><small>${esc(b.kind)}</small>${ICON.ext}</a>` : `<div class="link-block file-only">${ICON.doc}<span>${md(b.text)}</span><small>${esc(b.kind)} · attached in Notion</small></div>`; }
       else html += `<p class="muted">[Unsupported block: ${esc(b.type)}]</p>`;
     }
     return html;
@@ -294,6 +295,8 @@
     const sideSecs = secs.filter(x => x.k === 'prep' || x.k === 'followup');
     const mainSecs = secs.filter(x => !(x.k === 'prep' || x.k === 'followup'));
     const actSec = secs.find(x => x.k === 'actions');
+    const tkSec = secs.find(x => x.k === 'takeaway');
+    const tkLead = tkSec ? (tkSec.s.blocks.find(b => b.type === 'paragraph' && b.text.trim()) || {}).text : '';
     const edited = m.notionEditedAt ? new Date(m.notionEditedAt) : null;
     view.innerHTML = `
       <nav class="crumbs no-print"><a href="#/">${ICON.back}All meetings</a></nav>
@@ -318,6 +321,7 @@
         <div class="d-main">${mainSecs.map(x => sectionHtml(x.s, x.i)).join('')}</div>
         <aside class="d-side">
           <section class="d-sec glance"><header class="d-sec-head"><span class="d-ico">${ICON.info}</span><h2>At a glance</h2></header>
+            ${tkLead ? `<div class="glance-takeaway"><div class="gt-label">${ICON.spark}<span>${md(tkSec.s.heading)}</span></div><p>${md(tkLead)}</p><a class="btn sm jump-actions no-print" href="#sec-${tkSec.i}" data-jump="sec-${tkSec.i}">${ICON.arrow}Jump to Meeting Takeaway</a></div>` : ''}
             ${progressBar('Prep checklist', m.prep)}${progressBar('Next actions', m.nextActions || {})}${progressBar('Follow-up checklist', m.followup)}
             ${actSec ? `<a class="btn sm jump-actions no-print" href="#sec-${actSec.i}" data-jump="sec-${actSec.i}">${ICON.arrow}Jump to Next Actions</a>` : ''}
             <dl class="kv-grid compact">
