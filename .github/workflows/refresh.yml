@@ -1,0 +1,28 @@
+# Optional: rebuild the encrypted dataset from the Notion API + Outlook ICS feed.
+# Requires repo secrets DASHBOARD_PASSPHRASE, NOTION_TOKEN, NOTION_PREP_PARENT_ID (and optionally OUTLOOK_ICS_URL, ORG_EMAIL_DOMAIN).
+# Manual trigger only by default; add a `schedule:` once the secrets are in place.
+name: Refresh encrypted data
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: node scripts/build.mjs
+        env:
+          DASHBOARD_PASSPHRASE: ${{ secrets.DASHBOARD_PASSPHRASE }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PREP_PARENT_ID: ${{ secrets.NOTION_PREP_PARENT_ID }}
+          OUTLOOK_ICS_URL: ${{ secrets.OUTLOOK_ICS_URL }}
+          ORG_EMAIL_DOMAIN: ${{ secrets.ORG_EMAIL_DOMAIN }}
+      - run: |
+          git config user.name "meeting-prep-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/data.enc.json
+          git diff --cached --quiet || git commit -m "Refresh encrypted meeting data"
+          git push

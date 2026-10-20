@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Meeting Prep</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%234f46e5'/%3E%3Cpath d='M9 16.5l4.5 4.5L23 11.5' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<!-- Lock screen -->
+<main id="lock" class="lock">
+  <form id="unlock-form" class="lock-card" autocomplete="off">
+    <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4 4L19 7"/></svg></div>
+    <h1>Meeting Prep</h1>
+    <p class="muted">This dashboard is encrypted. Enter your passphrase to unlock.</p>
+    <label class="sr-only" for="pass">Passphrase</label>
+    <div class="pass-row">
+      <input id="pass" type="password" placeholder="Passphrase" autocomplete="current-password" required autofocus>
+      <button id="unlock-btn" class="btn primary" type="submit">Unlock</button>
+    </div>
+    <label class="remember"><input id="remember" type="checkbox"> Keep unlocked in this tab</label>
+    <p id="lock-error" class="error" role="alert" hidden></p>
+    <p class="fine"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg> AES-256-GCM · decrypted in your browser · nothing sent to a server</p>
+  </form>
+</main>
+
+<!-- Dashboard -->
+<div id="app" class="app" hidden>
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark sm" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4 4L19 7"/></svg></div>
+      <div><div class="brand-title">Meeting Prep</div><div class="brand-sub" id="subtitle"></div></div></div>
+    <div class="top-actions">
+      <span class="tz-pill" title="All times shown in Central time">CT · America/Chicago</span>
+      <button id="theme-btn" class="icon-btn" type="button" aria-label="Toggle theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></button>
+      <button id="lock-btn" class="btn ghost" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>Lock</button>
+    </div>
+  </header>
+  <div id="example-banner" class="banner" hidden>EXAMPLE DATA — design preview only. Not real meetings.</div>
+  <main class="content">
+    <section id="hero" class="hero"></section>
+    <section class="stats" id="stats"></section>
+    <section class="panel">
+      <div class="panel-head"><h2>Upcoming</h2><div class="seg" role="tablist">
+        <button class="seg-btn active" data-range="48">Next 48h</button><button class="seg-btn" data-range="168">7 days</button><button class="seg-btn" data-range="all">All</button></div></div>
+      <div id="timeline" class="timeline"></div>
+    </section>
+    <section class="panel" id="past-panel" hidden>
+      <details><summary><h2>Recent</h2><span class="muted" id="past-count"></span></summary><div id="past" class="timeline"></div></details>
+    </section>
+  </main>
+  <footer class="foot" id="foot"></footer>
+</div>
+</body>
+</html>

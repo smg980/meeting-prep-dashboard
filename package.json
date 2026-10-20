@@ -1,0 +1,13 @@
+{
+  "name": "meeting-prep-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Encrypted static dashboard of upcoming meetings and their Notion prep pages",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:example": "node scripts/build.mjs --example",
+    "serve": "python3 -m http.server 8080 -d docs"
+  },
+  "engines": { "node": ">=20" }
+}

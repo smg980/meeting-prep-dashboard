@@ -1,0 +1,7 @@
+# Never commit plaintext meeting data
+.cache/
+node_modules/
+screenshots/
+example/
+*.plain.json
+.env
