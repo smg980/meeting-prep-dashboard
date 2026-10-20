@@ -11,8 +11,8 @@
 <link rel="icon" href="favicon.ico" sizes="any">
 <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-<link rel="stylesheet" href="styles.css">
-<script src="app.js" defer></script>
+<link rel="stylesheet" href="styles.css?v=3">
+<script src="app.js?v=3" defer></script>
 </head>
 <body>
 <!-- Lock screen -->
@@ -51,7 +51,7 @@
     </div>
   </header>
   <div id="example-banner" class="banner" hidden>EXAMPLE DATA — design preview only. Not real meetings.</div>
-  <main class="content">
+  <main class="content" id="view-list">
     <section id="hero" class="hero"></section>
     <section class="stats" id="stats"></section>
     <section class="panel">
@@ -63,6 +63,7 @@
       <details><summary><h2>Recent</h2><span class="muted" id="past-count"></span></summary><div id="past" class="timeline"></div></details>
     </section>
   </main>
+  <main class="content detail" id="view-detail" hidden></main>
   <footer class="foot"><span class="tagline">See the signal. Know the next move.</span><span id="foot"></span></footer>
 </div>
 </body>

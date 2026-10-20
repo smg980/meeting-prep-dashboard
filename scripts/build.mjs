@@ -10,7 +10,8 @@
 // Output: docs/data.enc.json  — AES-256-GCM, key = PBKDF2-SHA256(DASHBOARD_PASSPHRASE, random salt, 600k iters).
 // Plaintext never touches the repo. Use --example to build a labeled EXAMPLE dataset into example/ (gitignored).
 
-import { webcrypto as crypto } from 'node:crypto';
+import { webcrypto as crypto, createHash } from 'node:crypto';
+import { parseBlocks, sectionize } from './notion-blocks.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -55,9 +56,12 @@ const checks = sec => {
   const l = sec ? sec.lines.filter(x => /^\s*[-*]\s+\[[ xX]\]/.test(x)) : [];
   return { done: l.filter(x => /\[[xX]\]/.test(x)).length, total: l.length };
 };
-const paragraph = sec => sec ? clean(sec.lines.filter(l => l.trim() && !/^\s*[-*\d]/.test(l)).join(' ')) : '';
+const paragraph = sec => sec ? clean(sec.lines.filter(l => l.trim() && !/^[\s<]|^[-*\d>]/.test(l)).join(' ')) : '';
 
-export function parsePrepPage({ id, title, url, last_edited, content }) {
+// Opaque, stable route id (doesn't reveal the title; stable across rebuilds for deep links)
+export const routeId = id => createHash('sha256').update('mpd-route-v1:' + id.replace(/-/g, '')).digest('base64url').slice(0, 12);
+
+export function parsePrepPage({ id, title, url, last_edited, content, icon }) {
   const secs = parseSections(content);
   const full = content;
   // Date: from title "<Meeting> — October 20, 2026"
@@ -82,8 +86,12 @@ export function parsePrepPage({ id, title, url, last_edited, content }) {
   const attendees = [...seen.values()];
   const purpose = (full.match(/\*\*Purpose:\*\*\s*(.+)/i) || [])[1];
   const link = (full.match(/\*\*Meeting link:\*\*\s*(.+)/i) || [])[1];
+  const unrendered = [];
+  const sections = sectionize(parseBlocks(content, unrendered));
   return {
     id: id.replace(/-/g, ''),
+    rid: routeId(id),
+    page: { icon: icon || '', sections, unrendered },
     title: baseTitle,
     account,
     start: start?.toISOString() || null,
@@ -111,7 +119,7 @@ async function readNotionCache() {
     const raw = await fs.readFile(path.join(dir, f), 'utf8');
     const m = raw.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
     if (!m) continue;
-    const meta = Object.fromEntries(m[1].split('\n').map(l => [l.slice(0, l.indexOf(':')).trim(), l.slice(l.indexOf(':') + 1).trim()]));
+    const meta = Object.fromEntries(m[1].split('\n').filter(l => l.includes(':')).map(l => [l.slice(0, l.indexOf(':')).trim(), l.slice(l.indexOf(':') + 1).trim()]));
     out.push(parsePrepPage({ ...meta, content: m[2] }));
   }
   return out;
@@ -124,7 +132,7 @@ async function readNotionApi() {
   const h = { Authorization: `Bearer ${tok}`, 'Notion-Version': '2022-06-28' };
   const get = async u => { const r = await fetch(`https://api.notion.com/v1/${u}`, { headers: h }); if (!r.ok) throw new Error(`Notion ${r.status}`); return r.json(); };
   const children = async id => { let res = [], c; do { const j = await get(`blocks/${id}/children?page_size=100${c ? `&start_cursor=${c}` : ''}`); res.push(...j.results); c = j.has_more ? j.next_cursor : null; } while (c); return res; };
-  const txt = rt => (rt || []).map(t => t.annotations?.bold ? `**${t.plain_text}**` : t.plain_text).join('');
+  const txt = rt => (rt || []).map(t => { let x = t.plain_text; if (t.annotations?.code) x = '`' + x + '`'; if (t.annotations?.bold) x = `**${x}**`; if (t.annotations?.italic) x = `*${x}*`; if (t.href) x = `[${x}](${t.href})`; return x; }).join('');
   const toMd = async (id, depth = 0) => {
     const lines = [];
     for (const b of await children(id)) {
@@ -133,7 +141,20 @@ async function readNotionApi() {
       else if (b.type === 'to_do') lines.push(`${pad}- [${v.checked ? 'x' : ' '}] ${txt(v.rich_text)}`);
       else if (b.type === 'bulleted_list_item') lines.push(`${pad}- ${txt(v.rich_text)}`);
       else if (b.type === 'numbered_list_item') lines.push(`${pad}1. ${txt(v.rich_text)}`);
-      else if (b.type === 'paragraph') lines.push(pad + txt(v.rich_text));
+      else if (b.type === 'paragraph') lines.push(pad + (txt(v.rich_text) || ''));
+      else if (b.type === 'quote') lines.push(`${pad}> ${txt(v.rich_text)}`);
+      else if (b.type === 'divider') lines.push(`${pad}---`);
+      else if (b.type === 'code') lines.push(`${pad}\`\`\`${v.language || ''}`, ...txt(v.rich_text).split('\n').map(l => pad + l), `${pad}\`\`\``);
+      else if (b.type === 'toggle') { lines.push(`${pad}<details>`, `${pad}<summary>${txt(v.rich_text)}</summary>`, await toMd(b.id, depth + 1), `${pad}</details>`); continue; }
+      else if (b.type === 'callout') { lines.push(`${pad}<callout icon="${v.icon?.emoji || ''}">`, `${pad}\t${txt(v.rich_text)}`, b.has_children ? await toMd(b.id, depth + 1) : '', `${pad}</callout>`); continue; }
+      else if (b.type === 'table') {
+        const rows = await children(b.id);
+        lines.push(`${pad}<table${v.has_column_header ? ' header-row="true"' : ''}>`, ...rows.map(r => `${pad}\t<tr>${r.table_row.cells.map(c => `<td>${txt(c)}</td>`).join('')}</tr>`), `${pad}</table>`); continue;
+      }
+      else if (b.type === 'child_page') lines.push(`${pad}<page url="https://www.notion.so/${b.id.replace(/-/g, '')}">${v.title}</page>`);
+      else if (['bookmark', 'embed', 'link_preview'].includes(b.type)) lines.push(`${pad}<bookmark url="${v.url}">${v.url}</bookmark>`);
+      else if (['image', 'file', 'pdf', 'video', 'audio'].includes(b.type)) lines.push(`${pad}<${b.type} url="${v.external?.url || v.file?.url || ''}">${txt(v.caption) || b.type}</${b.type}>`);
+      else lines.push(`${pad}<unsupported type="${b.type}"/>`);
       if (b.has_children && b.type !== 'child_page') lines.push(await toMd(b.id, depth + 1));
     }
     return lines.join('\n');
@@ -142,7 +163,7 @@ async function readNotionApi() {
   const out = [];
   for (const p of pages) {
     const meta = await get(`pages/${p.id}`);
-    out.push(parsePrepPage({ id: p.id, title: p.child_page.title, url: meta.url, last_edited: meta.last_edited_time, content: await toMd(p.id) }));
+    out.push(parsePrepPage({ id: p.id, title: p.child_page.title, url: meta.url, last_edited: meta.last_edited_time, icon: meta.icon?.emoji, content: await toMd(p.id) }));
   }
   return out;
 }
@@ -197,26 +218,81 @@ function merge(prep, events) {
   // Calendar-only meetings: only surface external ones (likely need prep) when the org domain is known.
   const extra = orgDomain ? events.filter(e => !used.has(e) && e.attendees.some(a => a.email && !a.email.toLowerCase().endsWith('@' + orgDomain))) : [];
   return prep.concat(extra.map(e => ({
-    id: (e.uid || e.summary).replace(/[^a-zA-Z0-9]/g, '').slice(0, 32), title: e.summary, account: '', start: e.DTSTART.toISOString(),
+    id: routeId(e.uid || e.summary), rid: routeId(e.uid || e.summary), page: null, title: e.summary, account: '', start: e.DTSTART.toISOString(),
     end: e.DTEND?.toISOString() || null, attendees: e.attendees.map(a => a.name || a.email), location: e.location || '', purpose: '', objective: '',
     questions: [], agenda: [], prep: { done: 0, total: 0 }, followup: { done: 0, total: 0 }, notionUrl: null, hasPrep: false, source: 'calendar',
   })));
 }
 
 // ---------- example data (clearly labeled, never committed) ----------
+const EXAMPLE_MD = acct => `## Meeting prep checklist
+- [x] EXAMPLE: Review calendar invite and description
+- [x] EXAMPLE: Confirm attendee roles and recent context
+- [x] EXAMPLE: Skim prior notes and opportunity record
+- [ ] EXAMPLE: Identify top 3 outcomes for the call
+- [ ] EXAMPLE: Prepare opening line and first status question
+## Meeting details
+- **EXAMPLE ${acct} — Discovery call**
+- **Participant:** Example Person A (Example Co)
+- **Purpose:** EXAMPLE DATA for design preview only.
+## Objective
+EXAMPLE objective: confirm status, stakeholders, milestones and next actions.
+<callout icon="💡" color="blue_bg">
+	EXAMPLE callout: this whole page is **sample content** for a design preview.
+</callout>
+## Priority questions
+1. **Status:** EXAMPLE — where does the opportunity stand?
+2. **Timing:** EXAMPLE — is the target close date realistic?
+3. **Engagement:** EXAMPLE — who is the economic buyer?
+## Agenda outline
+- 0–5 min: EXAMPLE context and goals
+- 5–20 min: EXAMPLE milestones and blockers
+- 20–30 min: EXAMPLE owners, actions and dates
+## Stakeholder map
+<table header-row="true">
+	<tr>
+		<td>Name</td>
+		<td>Role</td>
+		<td>Stance</td>
+	</tr>
+	<tr>
+		<td>Example Person A</td>
+		<td>EXAMPLE champion</td>
+		<td>Supportive</td>
+	</tr>
+	<tr>
+		<td>Example Person B</td>
+		<td>EXAMPLE economic buyer</td>
+		<td>Unknown</td>
+	</tr>
+</table>
+<details>
+<summary>EXAMPLE toggle: background reading</summary>
+	- EXAMPLE note inside a toggle with a [link](https://www.notion.so/)
+</details>
+## Live notes
+- **Opening / context:**
+- **Current status:**
+- **Agreed next actions:**
+	- Action: ___ | Owner: ___ | Due: ___
+## Follow-up checklist
+- [ ] EXAMPLE: Send recap email
+- [ ] EXAMPLE: Update opportunity record
+- [ ] EXAMPLE: Schedule next meeting
+`;
 function exampleData() {
   const t = (dh, h, m, dur = 30) => { const now = new Date(); const s = new Date(now); s.setDate(now.getDate() + dh); const y = s.getFullYear(), mo = s.getMonth(), d = s.getDate();
     const st = zonedToUTC(y, mo, d, h, m); return [st.toISOString(), new Date(st.getTime() + dur * 6e4).toISOString()]; };
-  const mk = (i, acct, title, [start, end], prep, fu, extra = {}) => ({ id: 'example' + i, title: `EXAMPLE — ${acct} — ${title}`, account: `EXAMPLE ${acct}`, start, end,
-    attendees: ['Example Person A', 'Example Person B'], location: 'Teams', purpose: 'EXAMPLE DATA for design preview only.', objective: 'EXAMPLE objective: confirm status, stakeholders, milestones and next actions.',
-    questions: ['EXAMPLE: Where does the opportunity stand?', 'EXAMPLE: Who is the economic buyer?', 'EXAMPLE: What steps remain before a PO?'],
-    agenda: ['0–5 min: Context', '5–20 min: Milestones & blockers', '20–30 min: Owners & dates'], prep, followup: fu, notionUrl: 'https://www.notion.so/', notionEditedAt: new Date().toISOString(), hasPrep: true, source: 'example', ...extra });
+  const mk = (i, acct, title, [start, end], extra = {}) => {
+    const m = parsePrepPage({ id: 'example-' + i, title: `EXAMPLE — ${acct} — ${title}`, url: 'https://www.notion.so/', last_edited: new Date().toISOString(), icon: '📋', content: EXAMPLE_MD(acct) });
+    return { ...m, account: `EXAMPLE ${acct}`, start, end, attendees: ['Example Person A (Example Co)', 'Example Person B (Example Co)', 'Steve (You)'], location: 'Teams', source: 'example', ...extra };
+  };
   return [
-    mk(1, 'Acme Corp', 'Opportunity review', t(0, 15, 30), { done: 6, total: 8 }, { done: 0, total: 4 }),
-    mk(2, 'Globex', 'Discovery call', t(1, 10, 0, 45), { done: 3, total: 8 }, { done: 0, total: 4 }),
-    mk(3, 'Initech', 'Exec alignment', t(1, 14, 0, 60), { done: 0, total: 8 }, { done: 0, total: 4 }),
-    mk(4, 'Umbrella', 'External kickoff', t(2, 11, 0), { done: 0, total: 0 }, { done: 0, total: 0 }, { hasPrep: false, notionUrl: null, source: 'calendar', objective: '', questions: [], agenda: [] }),
-    mk(5, 'Hooli', 'QBR (past)', t(-1, 13, 0), { done: 8, total: 8 }, { done: 2, total: 4 }),
+    mk(1, 'Acme Corp', 'Opportunity review', t(0, 15, 30), { followup: { done: 1, total: 3 } }),
+    mk(2, 'Globex', 'Discovery call', t(1, 10, 0, 45)),
+    mk(3, 'Initech', 'Exec alignment', t(1, 14, 0, 60), { prep: { done: 0, total: 5 } }),
+    { ...mk(4, 'Umbrella', 'External kickoff', t(2, 11, 0)), hasPrep: false, notionUrl: null, page: null, objective: '', purpose: 'EXAMPLE DATA for design preview only.', questions: [], agenda: [], prep: { done: 0, total: 0 }, followup: { done: 0, total: 0 }, source: 'calendar' },
+    mk(5, 'Hooli', 'QBR (past)', t(-1, 13, 0), { prep: { done: 5, total: 5 }, followup: { done: 2, total: 3 } }),
   ];
 }
 

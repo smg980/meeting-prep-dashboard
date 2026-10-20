@@ -12,13 +12,20 @@ Next-meeting hero with live countdown · stats (next 48h, prep pages, checklist 
 day-grouped timeline · prep status and checklist progress per meeting · priority questions & agenda ·
 **Open prep in Notion** buttons · dark-first MASTER Intelligence theme · optional "keep unlocked in this tab" (sessionStorage only).
 
+## Meeting detail view
+Each meeting with a prep page has **View prep** (cards and next-meeting banner), which opens `#/meeting/<id>` inside the dashboard.
+The id is an opaque hash of the Notion page id, so it never reveals the title; deep links and the back button work after unlock.
+The detail view mirrors the whole Notion page read-only: meeting details, objective, priority questions, agenda timeline,
+prep and follow-up checklists with progress, live notes (empty state when blank), and any other blocks (paragraphs, lists,
+toggles, callouts, tables, quotes, code, links). It has a print stylesheet too.
+
 ## Building the data
 ```bash
 export DASHBOARD_PASSPHRASE='…'      # required, never commit it
 node scripts/build.mjs                # writes docs/data.enc.json
 ```
 Sources (combined, all optional):
-1. `.cache/notion/*.md` — prep pages exported from Notion (gitignored; written by the assistant each morning).
+1. `.cache/notion/*.md` — full prep pages exported from Notion as Notion-flavored markdown, parsed by `scripts/notion-blocks.mjs` (gitignored; written by the assistant each morning).
 2. Notion API — set `NOTION_TOKEN` and `NOTION_PREP_PARENT_ID` (the "Meeting Prep" page) to read its child pages.
 3. Outlook ICS — set `OUTLOOK_ICS_URL` to align times/attendees with the calendar. With `ORG_EMAIL_DOMAIN` set,
    external meetings without a prep page also appear, flagged **No prep page**.
