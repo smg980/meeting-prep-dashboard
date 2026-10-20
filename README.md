@@ -1,4 +1,4 @@
-# Meeting Prep Dashboard
+# MASTER INTELLIGENCE · Meeting Prep Dashboard
 
 A static, passphrase-locked dashboard (GitHub Pages) of upcoming meetings and their Notion prep pages.
 
@@ -10,7 +10,7 @@ A static, passphrase-locked dashboard (GitHub Pages) of upcoming meetings and th
 ## Features
 Next-meeting hero with live countdown · stats (next 48h, prep pages, checklist progress, open follow-ups) ·
 day-grouped timeline · prep status and checklist progress per meeting · priority questions & agenda ·
-**Open prep in Notion** buttons · light/dark theme · optional "keep unlocked in this tab" (sessionStorage only).
+**Open prep in Notion** buttons · dark-first MASTER Intelligence theme · optional "keep unlocked in this tab" (sessionStorage only).
 
 ## Building the data
 ```bash
@@ -32,3 +32,8 @@ prep and follow-up checklists drive the progress bars.
 ## Changing the passphrase
 Re-run the build with the new `DASHBOARD_PASSPHRASE` and push `docs/data.enc.json`. Old blobs in git history stay
 encrypted with the old passphrase, so choose a strong one (16+ characters) from the start.
+
+## Brand / theme
+All colors are CSS variables in the single `:root` block at the top of `docs/styles.css` (MASTER Intelligence brand + app UI tokens).
+Fonts (Manrope for headings, DM Sans for body) are self-hosted in `docs/fonts/` (SIL Open Font License), so the CSP stays `'self'`-only.
+Logo: no official logo file yet. Drop it into the `.brand-logo[data-logo-slot]` elements in `docs/index.html` and remove their `hidden` attribute.

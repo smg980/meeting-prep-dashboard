@@ -14,11 +14,6 @@
     moon: '<svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>',
   };
 
-  // ---------- theme ----------
-  const applyTheme = t => { document.documentElement.dataset.theme = t; $('#theme-btn').innerHTML = t === 'dark' ? ICON.sun : ICON.moon; };
-  applyTheme(localStorage.getItem('mpd-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-  $('#theme-btn').addEventListener('click', () => { const t = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'; localStorage.setItem('mpd-theme', t); applyTheme(t); });
-
   // ---------- crypto ----------
   const unb64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
   async function fetchBlob() { const r = await fetch('data.enc.json', { cache: 'no-store' }); if (!r.ok) throw new Error('Could not load encrypted data.'); return r.json(); }
@@ -43,7 +38,10 @@
   }
   const initials = n => n.replace(/\(.*?\)/g, '').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
   const pct = c => c.total ? Math.round(100 * c.done / c.total) : 0;
+  const SOON = 15 * 6e4;
+  const startingSoon = m => { const d = m.s - new Date(); return d > 0 && d <= SOON; };
   function status(m) {
+    if (startingSoon(m)) return ['urgent', `Starts in ${Math.max(1, Math.ceil((m.s - new Date()) / 6e4))} min`];
     if (!m.hasPrep) return ['none', 'No prep page'];
     if (m.prep.total && m.prep.done === m.prep.total) return ['ready', 'Ready'];
     if (m.prep.done > 0) return ['progress', `Prep ${pct(m.prep)}%`];
@@ -58,7 +56,7 @@
     if (!c.total) return '';
     return `<div class="bar ${c.done === c.total ? 'done' : ''}"><div class="lbl"><span>${label}</span><span>${c.done}/${c.total}</span></div><div class="track"><div class="fill" data-w="${pct(c)}"></div></div></div>`;
   }
-  function notionBtn(m, cls = 'btn sm') {
+  function notionBtn(m, cls = 'btn primary sm') {
     const u = safeUrl(m.notionUrl);
     return u ? `<a class="${cls}" href="${esc(u)}" target="_blank" rel="noopener noreferrer">${ICON.ext}Open prep in Notion</a>` : '';
   }
@@ -101,13 +99,13 @@
       hero.innerHTML = `<div><div class="eyebrow">Next meeting</div><h2>You're all clear</h2><div class="meta"><span>No upcoming meetings need prep right now. New prep pages appear here after the next morning refresh.</span></div></div>`;
       return;
     }
-    hero.className = 'hero';
+    hero.className = 'hero' + (!current && startingSoon(m) ? ' urgent' : '');
     hero.innerHTML = `<div><div class="eyebrow">${current ? '<span class="live">In progress</span>' : 'Next meeting'}</div>
       <h2>${esc(m.title)}</h2>
       <div class="meta"><span>${ICON.clock}${esc(dayLabel(m.s))}, ${esc(fmt(m.s, { month: 'short', day: 'numeric' }))} · ${esc(timeStr(m.s))}–${esc(timeStr(m.e))} ${esc(tzAbbr(m.s))}</span>
         ${(m.attendees || []).length ? `<span>${ICON.users}${esc(m.attendees.length)} attendee${m.attendees.length > 1 ? 's' : ''}</span>` : ''}
         ${m.location ? `<span>${ICON.pin}${esc(m.location)}</span>` : ''}</div>
-      <div class="actions">${notionBtn(m, 'btn')}${m.hasPrep ? `<span class="btn ghost" aria-disabled="false">Prep ${m.prep.done}/${m.prep.total}</span>` : ''}</div></div>
+      <div class="actions">${notionBtn(m, 'btn primary')}${m.hasPrep ? `<span class="pill-stat">Prep ${m.prep.done}/${m.prep.total}</span>` : ''}</div></div>
       ${current ? '' : `<div class="countdown" id="countdown"></div>`}`;
     if (!current) tick(m.s);
   }
@@ -148,7 +146,7 @@
 
     const gen = new Date(DATA.generatedAt);
     $('#subtitle').textContent = `Updated ${fmt(gen, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} ${tzAbbr(gen)}`;
-    $('#foot').innerHTML = `<span>Sources: ${esc((DATA.sources || []).join(' + '))} · All times Central (${esc(tzAbbr(now))})</span><span>Encrypted client-side · AES-256-GCM</span>`;
+    $('#foot').textContent = `Sources: ${(DATA.sources || []).join(' + ')} · All times Central (${tzAbbr(now)}) · Encrypted client-side, AES-256-GCM`;
     $('#example-banner').hidden = !DATA.example;
     document.querySelectorAll('.fill[data-w]').forEach(el => { el.style.width = el.dataset.w + '%'; });
   }
