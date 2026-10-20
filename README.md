@@ -36,4 +36,4 @@ encrypted with the old passphrase, so choose a strong one (16+ characters) from 
 ## Brand / theme
 All colors are CSS variables in the single `:root` block at the top of `docs/styles.css` (MASTER Intelligence brand + app UI tokens).
 Fonts (Manrope for headings, DM Sans for body) are self-hosted in `docs/fonts/` (SIL Open Font License), so the CSP stays `'self'`-only.
-Logo: no official logo file yet. Drop it into the `.brand-logo[data-logo-slot]` elements in `docs/index.html` and remove their `hidden` attribute.
+Logo: official MASTER Intelligence logo in `docs/img/` (`logo-header`, `logo-lock` as WebP + PNG fallback) plus `docs/favicon.ico`, `docs/img/favicon-32.png`, `docs/img/apple-touch-icon.png`. The full-resolution source is kept untracked in `assets-src/`.

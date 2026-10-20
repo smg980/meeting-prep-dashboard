@@ -5,3 +5,4 @@ screenshots/
 example/
 *.plain.json
 .env
+assets-src/
