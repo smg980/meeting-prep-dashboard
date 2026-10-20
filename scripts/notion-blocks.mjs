@@ -9,7 +9,7 @@ const dedent = (l, n = 1) => { let s = l; for (let i = 0; i < n; i++) s = s.repl
 export function inline(s) {
   return String(s ?? '')
     .replace(/<mention-(?:page|database|link)[^>]*url="([^"]+)"[^>]*>(.*?)<\/mention-[a-z]+>/g, (_, u, t) => `[${t || 'Link'}](${u})`)
-    .replace(/<mention-(?:page|database|link)[^>]*url="([^"]+)"[^>]*\/>/g, (_, u) => `[Linked page](${u})`)
+    .replace(/<mention-(?:page|database|link)[^>]*url="([^"]+)"[^>]*\/>/g, (_, u) => `[Linked Notion page](${u})`)
     .replace(/<mention-user[^>]*>(.*?)<\/mention-user>/g, '@$1')
     .replace(/<mention-date[^>]*start="([^"]+)"[^>]*\/?>(?:<\/mention-date>)?/g, '$1')
     .replace(/<\/?(span|u|br|color)[^>]*>/g, '')

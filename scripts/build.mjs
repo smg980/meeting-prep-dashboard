@@ -49,7 +49,8 @@ function parseSections(md) {
   sections.push(cur);
   return sections;
 }
-const clean = s => s.replace(/\*\*/g, '').replace(/\*/g, '').replace(/\\\|/g, '|').trim();
+const unlink = s => s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
+const clean = s => unlink(s).replace(/\*\*/g, '').replace(/\*/g, '').replace(/\\\|/g, '|').trim();
 const find = (secs, re) => secs.find(s => re.test(s.heading));
 const items = sec => sec ? sec.lines.map(l => l.match(/^\s*(?:[-*]|\d+\.)\s+(?:\[[ xX]\]\s+)?(.*)$/)).filter(Boolean).map(m => clean(m[1])).filter(Boolean) : [];
 const checks = sec => {
@@ -77,7 +78,9 @@ export function parsePrepPage({ id, title, url, last_edited, content, icon }) {
     } else start = zonedToUTC(y, mo, d, 9, 0);
   }
   const baseTitle = clean(title.replace(/\s+—\s+[A-Z][a-z]+ \d{1,2}, \d{4}\s*$/, '').replace(/\s*Meeting Prep\s*$/i, ''));
-  const account = baseTitle.split(/\s+[—–-]\s+/)[0];
+  const acctLine = (full.match(/\*\*Account:\*\*\s*(.+)/i) || [])[1];
+  const parts = baseTitle.split(/\s+[—–-]\s+/);
+  const account = acctLine ? clean(acctLine) : parts.length > 1 ? parts[0] : '';
   const attLine = full.match(/\*\*(?:Attendees|Participants?):\*\*\s*(.+)/gi) || [];
   const seen = new Map();
   for (const n of attLine.flatMap(l => clean(l.replace(/^.*?:\*\*/, '')).split(/,|;/).map(s => s.trim()).filter(Boolean))) {
@@ -85,7 +88,7 @@ export function parsePrepPage({ id, title, url, last_edited, content, icon }) {
   }
   const attendees = [...seen.values()];
   const purpose = (full.match(/\*\*Purpose:\*\*\s*(.+)/i) || [])[1];
-  const link = (full.match(/\*\*Meeting link:\*\*\s*(.+)/i) || [])[1];
+  const link = (full.match(/\*\*Location:\*\*\s*(.+)/i) || full.match(/\*\*Meeting link:\*\*\s*(.+)/i) || [])[1];
   const unrendered = [];
   const sections = sectionize(parseBlocks(content, unrendered));
   return {
