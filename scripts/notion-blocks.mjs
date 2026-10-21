@@ -5,11 +5,20 @@
 const indentOf = l => (l.match(/^\t*/)[0].length) + Math.floor((l.match(/^\t*( *)/)[1].length) / 4);
 const dedent = (l, n = 1) => { let s = l; for (let i = 0; i < n; i++) s = s.replace(/^(\t| {4})/, ''); return s; };
 
+// Newer Notion connector output uses HTML inline tags (<b>, <i>, <s>, <code>); map them to the markdown subset.
+export const htmlInlineToMd = s => String(s ?? '')
+  .replace(/<(b|strong)>([\s\S]*?)<\/\1>/g, '**$2**')
+  .replace(/<(i|em)>([\s\S]*?)<\/\1>/g, '*$2*')
+  .replace(/<(s|del|strike)>([\s\S]*?)<\/\1>/g, '~~$2~~')
+  .replace(/<code>([\s\S]*?)<\/code>/g, '`$1`');
+
 // Inline: keep a safe markdown subset (bold, italic, code, strike, links); convert Notion inline tags.
 export function inline(s) {
   return String(s ?? '')
     .replace(/<mention-(?:page|database|link)[^>]*url="([^"]+)"[^>]*>(.*?)<\/mention-[a-z]+>/g, (_, u, t) => `[${t || 'Link'}](${u})`)
     .replace(/<mention-(?:page|database|link)[^>]*url="([^"]+)"[^>]*\/>/g, (_, u) => `[Linked Notion page](${u})`)
+    .replace(/<mention\s[^>]*url="([^"]+)"[^>]*>(.*?)<\/mention>/g, (_, u, t) => `[${t || 'Linked Notion page'}](${u})`)
+    .replace(/<mention\s[^>]*url="([^"]+)"[^>]*\/>/g, (_, u) => `[Linked Notion page](${u})`)
     .replace(/<mention-user[^>]*>(.*?)<\/mention-user>/g, '@$1')
     .replace(/<mention-date[^>]*start="([^"]+)"[^>]*\/?>(?:<\/mention-date>)?/g, '$1')
     .replace(/<\/?(span|u|br|color)[^>]*>/g, '')
@@ -32,8 +41,26 @@ function collectContainer(lines, i, open, close) {
   return [inner, lines.length, base];
 }
 
+// Newer connector output indents nested blocks with spaces sized to the parent marker ("- " = 2, "1. " = 3)
+// instead of tabs. Convert space indents to tab depth with an indent stack; tab-indented lines and fenced code are left as-is.
+export function normalizeIndent(md) {
+  const stack = [0]; let fence = false;
+  return md.split('\n').map(l => {
+    if (/^\s*```/.test(l)) fence = !fence;
+    if (fence && !/^\s*```/.test(l)) return l;
+    if (!l.trim() || /^\t/.test(l)) return l;
+    const n = l.match(/^ */)[0].length;
+    while (n < stack[stack.length - 1]) stack.pop();
+    if (n > stack[stack.length - 1]) stack.push(n);
+    return n ? '\t'.repeat(stack.length - 1) + l.slice(n) : l;
+  }).join('\n');
+}
+
 export function parseBlocks(md, unrendered = []) {
-  const lines = md.replace(/\r/g, '').split('\n');
+  const lines = normalizeIndent(md.replace(/\r/g, ''))
+    .replace(/^[ \t]*<\/?(?:p|ul|ol)>[ \t]*$\n?/gm, '')            // HTML paragraph / list wrappers
+    .replace(/^([ \t]*)<li>(.*?)<\/li>[ \t]*$/gm, '$1- $2')         // HTML list items -> markdown bullets
+    .split('\n');
   return parseLines(lines, unrendered);
 }
 

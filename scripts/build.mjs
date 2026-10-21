@@ -11,7 +11,7 @@
 // Plaintext never touches the repo. Use --example to build a labeled EXAMPLE dataset into example/ (gitignored).
 
 import { webcrypto as crypto, createHash } from 'node:crypto';
-import { parseBlocks, sectionize, extractNextActions } from './notion-blocks.mjs';
+import { parseBlocks, sectionize, extractNextActions, htmlInlineToMd } from './notion-blocks.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -63,6 +63,7 @@ const paragraph = sec => sec ? clean(sec.lines.filter(l => l.trim() && !/^[\s<]|
 export const routeId = id => createHash('sha256').update('mpd-route-v1:' + id.replace(/-/g, '')).digest('base64url').slice(0, 12);
 
 export function parsePrepPage({ id, title, url, last_edited, content, icon }) {
+  content = htmlInlineToMd(content);
   const secs = parseSections(content);
   const full = content;
   // Date: from title "<Meeting> — October 20, 2026"
